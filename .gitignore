@@ -1,0 +1,12 @@
+api_config.py
+ffmpeg.exe
+models/
+dist/
+build/
+installer/output/
+__pycache__/
+*.spec
+*.pt
+.tools/
+.cache
+.cache/
