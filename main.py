@@ -4,7 +4,7 @@ A modern Windows desktop tool for inspecting audio file specifications
 and local MAI AI Detector spectral (Fourier) analysis.
 """
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/meephimusicgroup/MerphiAudioApp/master/version.json"
 
 import json
@@ -206,6 +206,17 @@ TRANSLATIONS = {
         "spec_duration": "Duration",
         "spec_daw_encoder": "DAW / Encoder",
         "analyze_button": "🔍 MAI AI Detector (Spectral Analysis)",
+        "btn_ai_help": "[ ? ]",
+        "ai_help_title": "How MAI AI Detector works",
+        "ai_help_body": (
+            "MAI AI Detector uses a hybrid approach:\n"
+            "1. Metadata analysis: searching for hidden Suno, Udio and other tags.\n"
+            "2. Fourier spectral analysis: detecting the \"checkerboard\" "
+            "deconvolution artifacts that neural networks leave behind.\n\n"
+            "⚠️ Privacy: the analysis runs mathematically on your PC. The model "
+            "does NOT upload your audio files to any server and does NOT train on "
+            "your demos, so your NDA is respected."
+        ),
         "ai_idle": "Load a file, then run AI analysis.",
         "ai_ready": "Ready for AI analysis.",
         "ai_complete": "Analysis complete.",
@@ -372,6 +383,17 @@ TRANSLATIONS = {
         "spec_duration": "Длительность",
         "spec_daw_encoder": "DAW / Кодировщик",
         "analyze_button": "🔍 MAI AI Detector (Спектральный анализ)",
+        "btn_ai_help": "[ ? ]",
+        "ai_help_title": "Как работает MAI AI Detector",
+        "ai_help_body": (
+            "MAI AI Detector использует гибридный подход:\n"
+            "1. Анализ метаданных: Поиск скрытых тегов Suno, Udio и др.\n"
+            "2. Спектральный анализ Фурье: Поиск «шахматных» артефактов "
+            "деконволюции, которые оставляют нейросети.\n\n"
+            "⚠️ Конфиденциальность: Анализ происходит математически на вашем ПК. "
+            "Модель НЕ отправляет ваши аудиофайлы на сервер и НЕ дообучается на "
+            "ваших демках для соблюдения NDA."
+        ),
         "ai_idle": "Загрузите файл, затем запустите ИИ-анализ.",
         "ai_ready": "Готово к ИИ-анализу.",
         "ai_complete": "Анализ завершён.",
@@ -546,6 +568,17 @@ TRANSLATIONS = {
         "spec_duration": "再生時間",
         "spec_daw_encoder": "DAW / エンコーダー",
         "analyze_button": "🔍 MAI AI Detector (スペクトル解析)",
+        "btn_ai_help": "[ ? ]",
+        "ai_help_title": "MAI AI Detector の仕組み",
+        "ai_help_body": (
+            "MAI AI Detector はハイブリッド方式を使用します:\n"
+            "1. メタデータ解析: Suno、Udio などの隠れたタグを検索します。\n"
+            "2. フーリエスペクトル解析: ニューラルネットが残す「市松模様」の"
+            "デコンボリューション・アーティファクトを検出します。\n\n"
+            "⚠️ プライバシー: 解析はお使いのPC上で数学的に行われます。モデルは"
+            "音声ファイルをサーバーに送信せず、あなたのデモで再学習も行いません"
+            "（NDA遵守）。"
+        ),
         "ai_idle": "ファイルを読み込んでからAI分析を実行してください。",
         "ai_ready": "AI分析の準備ができました。",
         "ai_complete": "分析が完了しました。",
@@ -712,6 +745,15 @@ TRANSLATIONS = {
         "spec_duration": "时长",
         "spec_daw_encoder": "DAW / 编码器",
         "analyze_button": "🔍 MAI AI Detector (频谱分析)",
+        "btn_ai_help": "[ ? ]",
+        "ai_help_title": "MAI AI Detector 工作原理",
+        "ai_help_body": (
+            "MAI AI Detector 采用混合方式:\n"
+            "1. 元数据分析: 搜索 Suno、Udio 等隐藏标签。\n"
+            "2. 傅里叶频谱分析: 检测神经网络遗留的「棋盘格」反卷积伪影。\n\n"
+            "⚠️ 隐私: 分析在您的电脑上以数学方式进行。模型不会将您的音频文件"
+            "上传到任何服务器，也不会用您的样曲进行再训练，以遵守保密协议(NDA)。"
+        ),
         "ai_idle": "请先加载文件，然后运行 AI 分析。",
         "ai_ready": "已准备好进行 AI 分析。",
         "ai_complete": "分析完成。",
@@ -876,6 +918,17 @@ TRANSLATIONS = {
         "spec_duration": "Duração",
         "spec_daw_encoder": "DAW / Codificador",
         "analyze_button": "🔍 MAI AI Detector (Análise Espectral)",
+        "btn_ai_help": "[ ? ]",
+        "ai_help_title": "Como funciona o MAI AI Detector",
+        "ai_help_body": (
+            "O MAI AI Detector usa uma abordagem híbrida:\n"
+            "1. Análise de metadados: busca por tags ocultas de Suno, Udio e outros.\n"
+            "2. Análise espectral de Fourier: deteção dos artefactos de "
+            "deconvolução em \"tabuleiro de xadrez\" que as redes neurais deixam.\n\n"
+            "⚠️ Privacidade: a análise é feita matematicamente no seu PC. O modelo "
+            "NÃO envia os seus ficheiros de áudio para nenhum servidor e NÃO é "
+            "treinado com as suas demos, respeitando o NDA."
+        ),
         "ai_idle": "Carregue um arquivo e execute a análise com IA.",
         "ai_ready": "Pronto para análise com IA.",
         "ai_complete": "Análise concluída.",
@@ -1042,6 +1095,17 @@ TRANSLATIONS = {
         "spec_duration": "Duración",
         "spec_daw_encoder": "DAW / Codificador",
         "analyze_button": "🔍 MAI AI Detector (Análisis Espectral)",
+        "btn_ai_help": "[ ? ]",
+        "ai_help_title": "Cómo funciona MAI AI Detector",
+        "ai_help_body": (
+            "MAI AI Detector usa un enfoque híbrido:\n"
+            "1. Análisis de metadatos: búsqueda de etiquetas ocultas de Suno, Udio y otros.\n"
+            "2. Análisis espectral de Fourier: detección de los artefactos de "
+            "deconvolución en \"tablero de ajedrez\" que dejan las redes neuronales.\n\n"
+            "⚠️ Privacidad: el análisis se realiza matemáticamente en tu PC. El "
+            "modelo NO envía tus archivos de audio a ningún servidor y NO se "
+            "entrena con tus demos, respetando el NDA."
+        ),
         "ai_idle": "Carga un archivo y luego ejecuta el análisis con IA.",
         "ai_ready": "Listo para análisis con IA.",
         "ai_complete": "Análisis completado.",
@@ -1906,13 +1970,24 @@ class MerphiAudioInspector(ctk.CTk):
         self.ai_block.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 12))
         self.ai_block.grid_columnconfigure(0, weight=1)
 
+        ai_btn_row = ctk.CTkFrame(self.ai_block, fg_color="transparent")
+        ai_btn_row.grid(row=0, column=0, pady=(16, 8))
+
         self.analyze_btn = ctk.CTkButton(
-            self.ai_block, text="", width=240, height=42, corner_radius=12,
+            ai_btn_row, text="", width=240, height=42, corner_radius=12,
             fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER,
             text_color="#ffffff", font=self._font(size=14, weight="bold"),
             command=self._start_ai_analysis,
         )
-        self.analyze_btn.grid(row=0, column=0, pady=(16, 8))
+        self.analyze_btn.grid(row=0, column=0)
+
+        self.ai_help_btn = ctk.CTkButton(
+            ai_btn_row, text="", width=42, height=42, corner_radius=12,
+            fg_color=COLOR_SURFACE, hover_color=COLOR_BORDER,
+            border_width=1, border_color=COLOR_BORDER, text_color=COLOR_TEXT,
+            font=self._font(size=14, weight="bold"), command=self._open_ai_help,
+        )
+        self.ai_help_btn.grid(row=0, column=1, padx=(8, 0))
 
         self.progress_bar = ctk.CTkProgressBar(
             self.ai_block, width=420, height=10, corner_radius=5,
@@ -3279,6 +3354,7 @@ class MerphiAudioInspector(ctk.CTk):
         except Exception:
             pass
         self.analyze_btn.configure(text=self._t("analyze_button"))
+        self.ai_help_btn.configure(text=self._t("btn_ai_help"))
         self.about_btn.configure(text=self._t("about_btn"))
         self.demo_btn.configure(text=self._t("demo_button"))
         self.convert_format_label.configure(text=self._t("convert_format_label"))
@@ -3511,6 +3587,32 @@ class MerphiAudioInspector(ctk.CTk):
     # AI analysis (local Deezer deepfake-detector)
     # ------------------------------------------------------------------
 
+    def _open_ai_help(self) -> None:
+        win = self._make_popup(self._t("ai_help_title"), 560, 420)
+        win.grid_columnconfigure(0, weight=1)
+        win.grid_rowconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            win, text=self._t("ai_help_title"),
+            font=self._font(size=16, weight="bold"), text_color=COLOR_TEXT,
+            wraplength=500, justify="left",
+        ).grid(row=0, column=0, sticky="w", padx=18, pady=(18, 8))
+
+        box = ctk.CTkTextbox(
+            win, font=self._font(size=13), fg_color=COLOR_SURFACE,
+            text_color=COLOR_TEXT, wrap="word", corner_radius=10,
+        )
+        box.grid(row=1, column=0, sticky="nsew", padx=18, pady=(0, 10))
+        box.insert("1.0", self._t("ai_help_body"))
+        box.configure(state="disabled")
+
+        ctk.CTkButton(
+            win, text=self._t("close_button"), width=110, height=34,
+            corner_radius=10, fg_color=COLOR_ACCENT,
+            hover_color=COLOR_ACCENT_HOVER, text_color="#ffffff",
+            font=self._font(size=12, weight="bold"), command=win.destroy,
+        ).grid(row=2, column=0, sticky="e", padx=18, pady=(0, 16))
+
     def _reset_ai_panel(self) -> None:
         self._stop_progress_pulse()
         self.ai_state = "ready"
@@ -3674,7 +3776,12 @@ def _tag_value_to_str(value) -> str | None:
 
 # AI-music generators that stamp their name into file metadata. A match here
 # is a near-certain signal, so it bypasses the spectral analysis entirely.
+# Word boundaries are required so e.g. "FL Studio" does NOT match "udio".
 AI_METADATA_KEYWORDS = ("suno", "udio", "riffusion")
+_AI_TAG_PATTERN = re.compile(
+    r"\b(" + "|".join(AI_METADATA_KEYWORDS) + r")\b",
+    re.IGNORECASE,
+)
 
 
 def _gather_metadata_candidates(filepath: str) -> list[str]:
@@ -3687,15 +3794,17 @@ def _gather_metadata_candidates(filepath: str) -> list[str]:
 
 
 def detect_ai_music_tag(filepath: str) -> str | None:
-    """Return the AI generator keyword if the file metadata names one."""
+    """Return the AI generator keyword if the file metadata names one.
+
+    Uses word-boundary regex so unrelated software such as "FL Studio"
+    (which contains the substring "udio") does not trigger a false match.
+    """
     try:
-        blob = " ".join(_gather_metadata_candidates(filepath)).lower()
+        blob = " ".join(_gather_metadata_candidates(filepath))
     except Exception:
         return None
-    for keyword in AI_METADATA_KEYWORDS:
-        if keyword in blob:
-            return keyword
-    return None
+    match = _AI_TAG_PATTERN.search(blob)
+    return match.group(1).lower() if match else None
 
 
 def detect_daw_encoder(filepath: str) -> str:
