@@ -1,11 +1,11 @@
 """
 Merphi Audio Inspector
 A modern Windows desktop tool for inspecting audio file specifications
-and local Deezer deepfake-detector AI music analysis.
+and local MAI AI Detector spectral (Fourier) analysis.
 """
 
-APP_VERSION = "1.0.0"
-UPDATE_CHECK_URL = "https://raw.githubusercontent.com/merphimusic/updates/main/version.json"
+APP_VERSION = "1.1.0"
+UPDATE_CHECK_URL = "https://raw.githubusercontent.com/merphimusic/MerphiAudioApp/main/version.json"
 
 import json
 import os
@@ -31,6 +31,12 @@ from spotify_client import SpotifyInsights, build_search_query
 from acrcloud_client import ACRCloudClient
 from youtube_client import YouTubeClient, format_views
 from apple_music_client import search_hi_res_artwork_url, download_artwork
+from query_router import route_smart_query
+from llm_analyzer import (
+    gemini_enabled,
+    generate_ar_report,
+    generate_editorial_pitch,
+)
 
 try:
     from CTkMessagebox import CTkMessagebox
@@ -178,6 +184,14 @@ TRANSLATIONS = {
         "subtitle": "A product by Merphi Music Group",
         "drop_primary": "Drag & drop an audio file here",
         "drop_hint": "Supported formats: .wav  ·  .mp3  ·  .flac",
+        "smart_search_title": "Smart Search",
+        "smart_search_placeholder": (
+            "Paste a link (Spotify/YouTube), ISRC, UPC, or track name..."
+        ),
+        "smart_search_btn": "🔍 Search",
+        "web_specs_status": "No file loaded. Showing online metadata.",
+        "msg_no_metadata_title": "No metadata yet",
+        "msg_no_metadata_body": "Run Smart Search or load an audio file first.",
         "no_file_loaded": "No file loaded",
         "file_loaded_success": "File loaded successfully",
         "browse_button": "Browse for file",
@@ -191,7 +205,7 @@ TRANSLATIONS = {
         "spec_bitrate": "Bitrate",
         "spec_duration": "Duration",
         "spec_daw_encoder": "DAW / Encoder",
-        "analyze_button": "🔍 Analyze with AI",
+        "analyze_button": "🔍 MAI AI Detector (Spectral Analysis)",
         "ai_idle": "Load a file, then run AI analysis.",
         "ai_ready": "Ready for AI analysis.",
         "ai_complete": "Analysis complete.",
@@ -203,8 +217,8 @@ TRANSLATIONS = {
         "ai_result": "Probability of AI generation: {probability}% - {verdict}",
         "verdict_human": "Human",
         "verdict_ai": "AI",
-        "progress_loading_model": "Loading Deezer detection model...",
-        "progress_running_model": "Running Deezer deepfake analysis...",
+        "progress_loading_model": "Initializing MAI detector...",
+        "progress_running_model": "MAI spectral (Fourier) analysis...",
         "msg_model_missing_title": "Model not downloaded",
         "msg_model_missing_body": "Deezer PyTorch weights are missing.\n\nRun in the project folder:\n1) python download_model.py\n2) python convert_tf_to_torch.py",
         "msg_ai_error_title": "AI analysis failed",
@@ -229,6 +243,14 @@ TRANSLATIONS = {
         "credits_artist": "Artist",
         "btn_songdna": "🎵 Song DNA",
         "btn_description": "📝 Editorial description",
+        "btn_ar_report": "📊 A&R Analysis (AI)",
+        "ar_report_title": "A&R Report — Merphi Music Group",
+        "ar_report_generating": "Analyzing potential...",
+        "copy_ar_report": "Copy report",
+        "pitch_generating": "Generating pitch...",
+        "llm_error_title": "AI generation failed",
+        "llm_error_body": "Could not generate text.\n\n{error}",
+        "llm_no_key": "Gemini API key is not configured.",
         "btn_youtube": "▶️ Search on YouTube",
         "offline_warning": (
             "⚠️ No internet. Only local AI analysis and audio converter are available."
@@ -328,6 +350,14 @@ TRANSLATIONS = {
         "subtitle": "Продукт Merphi Music Group",
         "drop_primary": "Перетащите аудиофайл сюда",
         "drop_hint": "Поддерживаемые форматы: .wav  ·  .mp3  ·  .flac",
+        "smart_search_title": "Умный поиск",
+        "smart_search_placeholder": (
+            "Вставьте ссылку (Spotify/YouTube), ISRC, UPC или Название трека..."
+        ),
+        "smart_search_btn": "🔍 Найти",
+        "web_specs_status": "Файл не загружен. Показаны метаданные из сети.",
+        "msg_no_metadata_title": "Нет метаданных",
+        "msg_no_metadata_body": "Сначала выполните умный поиск или загрузите аудиофайл.",
         "no_file_loaded": "Файл не загружен",
         "file_loaded_success": "Файл успешно загружен",
         "browse_button": "Выбрать файл",
@@ -341,7 +371,7 @@ TRANSLATIONS = {
         "spec_bitrate": "Битрейт",
         "spec_duration": "Длительность",
         "spec_daw_encoder": "DAW / Кодировщик",
-        "analyze_button": "🔍 Анализ с ИИ",
+        "analyze_button": "🔍 MAI AI Detector (Спектральный анализ)",
         "ai_idle": "Загрузите файл, затем запустите ИИ-анализ.",
         "ai_ready": "Готово к ИИ-анализу.",
         "ai_complete": "Анализ завершён.",
@@ -353,8 +383,8 @@ TRANSLATIONS = {
         "ai_result": "Вероятность ИИ-генерации: {probability}% - {verdict}",
         "verdict_human": "Человек",
         "verdict_ai": "ИИ",
-        "progress_loading_model": "Загрузка модели Deezer...",
-        "progress_running_model": "Анализ Deezer deepfake...",
+        "progress_loading_model": "Инициализация MAI детектора...",
+        "progress_running_model": "MAI спектральный анализ (Фурье)...",
         "msg_model_missing_title": "Модель не загружена",
         "msg_model_missing_body": "Отсутствуют PyTorch-веса Deezer.\n\nВыполните в папке проекта:\n1) python download_model.py\n2) python convert_tf_to_torch.py",
         "msg_ai_error_title": "Ошибка ИИ-анализа",
@@ -379,6 +409,14 @@ TRANSLATIONS = {
         "credits_artist": "Артист",
         "btn_songdna": "🎵 Song DNA",
         "btn_description": "📝 Описание для редакторов",
+        "btn_ar_report": "📊 A&R Анализ (ИИ)",
+        "ar_report_title": "A&R Отчет — Merphi Music Group",
+        "ar_report_generating": "Анализирую потенциал...",
+        "copy_ar_report": "Копировать отчет",
+        "pitch_generating": "Генерация питча...",
+        "llm_error_title": "Ошибка генерации ИИ",
+        "llm_error_body": "Не удалось сгенерировать текст.\n\n{error}",
+        "llm_no_key": "Ключ Gemini API не настроен.",
         "btn_youtube": "▶️ Найти на YouTube",
         "offline_warning": (
             "⚠️ Нет интернета. Доступен только локальный ИИ-анализ и аудиоконвертер."
@@ -486,6 +524,14 @@ TRANSLATIONS = {
         "subtitle": "Merphi Music Group 提供",
         "drop_primary": "ここにオーディオファイルをドラッグ＆ドロップ",
         "drop_hint": "対応形式: .wav  ·  .mp3  ·  .flac",
+        "smart_search_title": "スマート検索",
+        "smart_search_placeholder": (
+            "Spotify/YouTubeリンク、ISRC、UPC、または曲名を入力..."
+        ),
+        "smart_search_btn": "🔍 検索",
+        "web_specs_status": "ファイル未読み込み。オンラインメタデータを表示中。",
+        "msg_no_metadata_title": "メタデータなし",
+        "msg_no_metadata_body": "スマート検索を実行するか、音声ファイルを読み込んでください。",
         "no_file_loaded": "ファイル未読み込み",
         "file_loaded_success": "ファイルを読み込みました",
         "browse_button": "ファイルを選択",
@@ -499,7 +545,7 @@ TRANSLATIONS = {
         "spec_bitrate": "ビットレート",
         "spec_duration": "再生時間",
         "spec_daw_encoder": "DAW / エンコーダー",
-        "analyze_button": "🔍 AIで分析",
+        "analyze_button": "🔍 MAI AI Detector (スペクトル解析)",
         "ai_idle": "ファイルを読み込んでからAI分析を実行してください。",
         "ai_ready": "AI分析の準備ができました。",
         "ai_complete": "分析が完了しました。",
@@ -511,8 +557,8 @@ TRANSLATIONS = {
         "ai_result": "AI生成の確率: {probability}% - {verdict}",
         "verdict_human": "人間",
         "verdict_ai": "AI",
-        "progress_loading_model": "Deezer検出モデルを読み込み中...",
-        "progress_running_model": "Deezer deepfake分析を実行中...",
+        "progress_loading_model": "MAI ディテクターを初期化中...",
+        "progress_running_model": "MAI スペクトル解析 (フーリエ)...",
         "msg_model_missing_title": "モデル未ダウンロード",
         "msg_model_missing_body": "Deezer PyTorch重みがありません。\n\nプロジェクトフォルダで実行:\n1) python download_model.py\n2) python convert_tf_to_torch.py",
         "msg_ai_error_title": "AI分析エラー",
@@ -537,6 +583,14 @@ TRANSLATIONS = {
         "credits_artist": "アーティスト",
         "btn_songdna": "🎵 Song DNA",
         "btn_description": "📝 編集者向け説明",
+        "btn_ar_report": "📊 A&R分析 (AI)",
+        "ar_report_title": "A&Rレポート — Merphi Music Group",
+        "ar_report_generating": "ポテンシャルを分析中...",
+        "copy_ar_report": "レポートをコピー",
+        "pitch_generating": "ピッチを生成中...",
+        "llm_error_title": "AI生成エラー",
+        "llm_error_body": "テキストを生成できませんでした。\n\n{error}",
+        "llm_no_key": "Gemini APIキーが設定されていません。",
         "btn_youtube": "▶️ YouTube で検索",
         "offline_warning": (
             "⚠️ インターネット未接続。ローカルAI分析と変換のみ利用できます。"
@@ -636,6 +690,14 @@ TRANSLATIONS = {
         "subtitle": "Merphi Music Group 出品",
         "drop_primary": "将音频文件拖放到此处",
         "drop_hint": "支持格式: .wav  ·  .mp3  ·  .flac",
+        "smart_search_title": "智能搜索",
+        "smart_search_placeholder": (
+            "粘贴链接 (Spotify/YouTube)、ISRC、UPC 或曲名..."
+        ),
+        "smart_search_btn": "🔍 搜索",
+        "web_specs_status": "未加载文件。显示在线元数据。",
+        "msg_no_metadata_title": "暂无元数据",
+        "msg_no_metadata_body": "请先进行智能搜索或加载音频文件。",
         "no_file_loaded": "未加载文件",
         "file_loaded_success": "文件加载成功",
         "browse_button": "浏览文件",
@@ -649,7 +711,7 @@ TRANSLATIONS = {
         "spec_bitrate": "比特率",
         "spec_duration": "时长",
         "spec_daw_encoder": "DAW / 编码器",
-        "analyze_button": "🔍 AI 分析",
+        "analyze_button": "🔍 MAI AI Detector (频谱分析)",
         "ai_idle": "请先加载文件，然后运行 AI 分析。",
         "ai_ready": "已准备好进行 AI 分析。",
         "ai_complete": "分析完成。",
@@ -661,8 +723,8 @@ TRANSLATIONS = {
         "ai_result": "AI 生成概率: {probability}% - {verdict}",
         "verdict_human": "人类",
         "verdict_ai": "AI",
-        "progress_loading_model": "正在加载 Deezer 检测模型...",
-        "progress_running_model": "正在运行 Deezer deepfake 分析...",
+        "progress_loading_model": "正在初始化 MAI 检测器...",
+        "progress_running_model": "MAI 频谱分析 (傅里叶)...",
         "msg_model_missing_title": "模型未下载",
         "msg_model_missing_body": "缺少 Deezer PyTorch 权重。\n\n在项目文件夹中运行:\n1) python download_model.py\n2) python convert_tf_to_torch.py",
         "msg_ai_error_title": "AI 分析失败",
@@ -687,6 +749,14 @@ TRANSLATIONS = {
         "credits_artist": "艺人",
         "btn_songdna": "🎵 Song DNA",
         "btn_description": "📝 编辑描述",
+        "btn_ar_report": "📊 A&R 分析 (AI)",
+        "ar_report_title": "A&R 报告 — Merphi Music Group",
+        "ar_report_generating": "正在分析潜力...",
+        "copy_ar_report": "复制报告",
+        "pitch_generating": "正在生成 pitch...",
+        "llm_error_title": "AI 生成失败",
+        "llm_error_body": "无法生成文本。\n\n{error}",
+        "llm_no_key": "未配置 Gemini API 密钥。",
         "btn_youtube": "▶️ 在 YouTube 搜索",
         "offline_warning": (
             "⚠️ 无网络连接。仅可使用本地 AI 分析和音频转换器。"
@@ -784,6 +854,14 @@ TRANSLATIONS = {
         "subtitle": "Um produto da Merphi Music Group",
         "drop_primary": "Arraste e solte um arquivo de áudio aqui",
         "drop_hint": "Formatos suportados: .wav  ·  .mp3  ·  .flac",
+        "smart_search_title": "Busca inteligente",
+        "smart_search_placeholder": (
+            "Cole um link (Spotify/YouTube), ISRC, UPC ou nome da faixa..."
+        ),
+        "smart_search_btn": "🔍 Buscar",
+        "web_specs_status": "Nenhum arquivo carregado. Exibindo metadados online.",
+        "msg_no_metadata_title": "Sem metadados",
+        "msg_no_metadata_body": "Execute a busca inteligente ou carregue um arquivo de áudio.",
         "no_file_loaded": "Nenhum arquivo carregado",
         "file_loaded_success": "Arquivo carregado com sucesso",
         "browse_button": "Procurar arquivo",
@@ -797,7 +875,7 @@ TRANSLATIONS = {
         "spec_bitrate": "Bitrate",
         "spec_duration": "Duração",
         "spec_daw_encoder": "DAW / Codificador",
-        "analyze_button": "🔍 Analisar com IA",
+        "analyze_button": "🔍 MAI AI Detector (Análise Espectral)",
         "ai_idle": "Carregue um arquivo e execute a análise com IA.",
         "ai_ready": "Pronto para análise com IA.",
         "ai_complete": "Análise concluída.",
@@ -809,8 +887,8 @@ TRANSLATIONS = {
         "ai_result": "Probabilidade de geração por IA: {probability}% - {verdict}",
         "verdict_human": "Humano",
         "verdict_ai": "IA",
-        "progress_loading_model": "Carregando modelo Deezer...",
-        "progress_running_model": "Executando análise Deezer deepfake...",
+        "progress_loading_model": "Inicializando detector MAI...",
+        "progress_running_model": "Análise espectral MAI (Fourier)...",
         "msg_model_missing_title": "Modelo não baixado",
         "msg_model_missing_body": "Pesos PyTorch do Deezer ausentes.\n\nExecute na pasta do projeto:\n1) python download_model.py\n2) python convert_tf_to_torch.py",
         "msg_ai_error_title": "Falha na análise com IA",
@@ -835,6 +913,14 @@ TRANSLATIONS = {
         "credits_artist": "Artista",
         "btn_songdna": "🎵 Song DNA",
         "btn_description": "📝 Descrição editorial",
+        "btn_ar_report": "📊 Análise A&R (IA)",
+        "ar_report_title": "Relatório A&R — Merphi Music Group",
+        "ar_report_generating": "Analisando potencial...",
+        "copy_ar_report": "Copiar relatório",
+        "pitch_generating": "Gerando pitch...",
+        "llm_error_title": "Falha na geração de IA",
+        "llm_error_body": "Não foi possível gerar o texto.\n\n{error}",
+        "llm_no_key": "Chave Gemini API não configurada.",
         "btn_youtube": "▶️ Buscar no YouTube",
         "offline_warning": (
             "⚠️ Sem internet. Apenas análise local de IA e conversor de áudio disponíveis."
@@ -934,6 +1020,14 @@ TRANSLATIONS = {
         "subtitle": "Un producto de Merphi Music Group",
         "drop_primary": "Arrastra y suelta un archivo de audio aquí",
         "drop_hint": "Formatos compatibles: .wav  ·  .mp3  ·  .flac",
+        "smart_search_title": "Búsqueda inteligente",
+        "smart_search_placeholder": (
+            "Pega un enlace (Spotify/YouTube), ISRC, UPC o nombre de la pista..."
+        ),
+        "smart_search_btn": "🔍 Buscar",
+        "web_specs_status": "Archivo no cargado. Mostrando metadatos en línea.",
+        "msg_no_metadata_title": "Sin metadatos",
+        "msg_no_metadata_body": "Ejecuta la búsqueda inteligente o carga un archivo de audio.",
         "no_file_loaded": "Ningún archivo cargado",
         "file_loaded_success": "Archivo cargado correctamente",
         "browse_button": "Buscar archivo",
@@ -947,7 +1041,7 @@ TRANSLATIONS = {
         "spec_bitrate": "Bitrate",
         "spec_duration": "Duración",
         "spec_daw_encoder": "DAW / Codificador",
-        "analyze_button": "🔍 Analizar con IA",
+        "analyze_button": "🔍 MAI AI Detector (Análisis Espectral)",
         "ai_idle": "Carga un archivo y luego ejecuta el análisis con IA.",
         "ai_ready": "Listo para análisis con IA.",
         "ai_complete": "Análisis completado.",
@@ -959,8 +1053,8 @@ TRANSLATIONS = {
         "ai_result": "Probabilidad de generación por IA: {probability}% - {verdict}",
         "verdict_human": "Humano",
         "verdict_ai": "IA",
-        "progress_loading_model": "Cargando modelo Deezer...",
-        "progress_running_model": "Ejecutando análisis Deezer deepfake...",
+        "progress_loading_model": "Inicializando detector MAI...",
+        "progress_running_model": "Análisis espectral MAI (Fourier)...",
         "msg_model_missing_title": "Modelo no descargado",
         "msg_model_missing_body": "Faltan los pesos PyTorch de Deezer.\n\nEjecute en la carpeta del proyecto:\n1) python download_model.py\n2) python convert_tf_to_torch.py",
         "msg_ai_error_title": "Error de análisis con IA",
@@ -985,6 +1079,14 @@ TRANSLATIONS = {
         "credits_artist": "Artista",
         "btn_songdna": "🎵 Song DNA",
         "btn_description": "📝 Descripción editorial",
+        "btn_ar_report": "📊 Análisis A&R (IA)",
+        "ar_report_title": "Informe A&R — Merphi Music Group",
+        "ar_report_generating": "Analizando potencial...",
+        "copy_ar_report": "Copiar informe",
+        "pitch_generating": "Generando pitch...",
+        "llm_error_title": "Error de generación IA",
+        "llm_error_body": "No se pudo generar el texto.\n\n{error}",
+        "llm_no_key": "La clave Gemini API no está configurada.",
         "btn_youtube": "▶️ Buscar en YouTube",
         "offline_warning": (
             "⚠️ Sin internet. Solo análisis local de IA y convertidor de audio disponibles."
@@ -1393,6 +1495,9 @@ class MerphiAudioInspector(ctk.CTk):
         self.youtube_result: dict | None = None
         self.youtube_url: str | None = None
         self.youtube_pending = False
+        self.web_metadata_mode = False
+        self._pitch_generating = False
+        self._ar_generating = False
 
         self.title(self._t("app_title"))
         self.geometry(WINDOW_SIZE)
@@ -1510,9 +1615,49 @@ class MerphiAudioInspector(ctk.CTk):
         content.grid(row=0, column=1, sticky="n")
         content.grid_columnconfigure(0, weight=1)
 
+        self._build_smart_search(content)
         self._build_card_file(content)
         self._build_card_analytics(content)
         self._build_card_actions(content)
+
+    def _build_smart_search(self, parent) -> None:
+        card = self._card(parent, 0)
+
+        self._card_title(card, 0, "smart_search_title_lbl")
+
+        row = ctk.CTkFrame(card, fg_color="transparent")
+        row.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 18))
+        row.grid_columnconfigure(0, weight=1)
+
+        self.smart_search_var = ctk.StringVar()
+        self.smart_search_entry = ctk.CTkEntry(
+            row,
+            textvariable=self.smart_search_var,
+            height=42,
+            corner_radius=12,
+            border_width=1,
+            border_color=COLOR_BORDER,
+            fg_color=COLOR_SURFACE,
+            text_color=COLOR_TEXT,
+            placeholder_text=self._t("smart_search_placeholder"),
+            font=self._font(size=13),
+        )
+        self.smart_search_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        self.smart_search_entry.bind("<Return>", self._on_smart_search_enter)
+
+        self.smart_search_btn = ctk.CTkButton(
+            row,
+            text=self._t("smart_search_btn"),
+            width=130,
+            height=42,
+            corner_radius=12,
+            fg_color=COLOR_ACCENT,
+            hover_color=COLOR_ACCENT_HOVER,
+            text_color="#ffffff",
+            font=self._font(size=13, weight="bold"),
+            command=self._on_smart_search,
+        )
+        self.smart_search_btn.grid(row=0, column=1, sticky="e")
 
     def _card(self, parent, row: int) -> ctk.CTkFrame:
         card = ctk.CTkFrame(
@@ -1541,7 +1686,7 @@ class MerphiAudioInspector(ctk.CTk):
         setattr(self, attr, lbl)
 
     def _build_card_file(self, parent) -> None:
-        card = self._card(parent, 0)
+        card = self._card(parent, 1)
 
         self._card_title(card, 0, "card_file_title_lbl")
 
@@ -1604,7 +1749,7 @@ class MerphiAudioInspector(ctk.CTk):
         self._show_empty_specs()
 
     def _build_card_analytics(self, parent) -> None:
-        card = self._card(parent, 1)
+        card = self._card(parent, 2)
         card.grid_columnconfigure(1, weight=1)
 
         self._card_title(card, 0, "sp_header")
@@ -1753,16 +1898,16 @@ class MerphiAudioInspector(ctk.CTk):
         self.sp_note.grid_remove()
 
     def _build_card_actions(self, parent) -> None:
-        card = self._card(parent, 2)
+        card = self._card(parent, 3)
 
         self._card_title(card, 0, "card_action_title_lbl")
 
-        ai_block = ctk.CTkFrame(card, fg_color=COLOR_CARD_INNER, corner_radius=12)
-        ai_block.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 12))
-        ai_block.grid_columnconfigure(0, weight=1)
+        self.ai_block = ctk.CTkFrame(card, fg_color=COLOR_CARD_INNER, corner_radius=12)
+        self.ai_block.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 12))
+        self.ai_block.grid_columnconfigure(0, weight=1)
 
         self.analyze_btn = ctk.CTkButton(
-            ai_block, text="", width=240, height=42, corner_radius=12,
+            self.ai_block, text="", width=240, height=42, corner_radius=12,
             fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER,
             text_color="#ffffff", font=self._font(size=14, weight="bold"),
             command=self._start_ai_analysis,
@@ -1770,7 +1915,7 @@ class MerphiAudioInspector(ctk.CTk):
         self.analyze_btn.grid(row=0, column=0, pady=(16, 8))
 
         self.progress_bar = ctk.CTkProgressBar(
-            ai_block, width=420, height=10, corner_radius=5,
+            self.ai_block, width=420, height=10, corner_radius=5,
             progress_color=COLOR_ACCENT, fg_color=COLOR_BORDER,
         )
         self.progress_bar.grid(row=1, column=0, pady=(0, 6))
@@ -1778,29 +1923,29 @@ class MerphiAudioInspector(ctk.CTk):
         self.progress_bar.grid_remove()
 
         self.progress_label = ctk.CTkLabel(
-            ai_block, text="", font=self._font(size=11), text_color=COLOR_MUTED,
+            self.ai_block, text="", font=self._font(size=11), text_color=COLOR_MUTED,
         )
         self.progress_label.grid(row=2, column=0, pady=(0, 4))
 
         self.ai_result_label = ctk.CTkLabel(
-            ai_block, text="", font=self._font(size=13), text_color=COLOR_MUTED,
+            self.ai_block, text="", font=self._font(size=13), text_color=COLOR_MUTED,
             wraplength=680, justify="left", anchor="w",
         )
         self.ai_result_label.grid(row=3, column=0, sticky="w", padx=8, pady=(0, 16))
 
-        convert_block = ctk.CTkFrame(card, fg_color=COLOR_CARD_INNER, corner_radius=12)
-        convert_block.grid(row=2, column=0, sticky="ew", padx=22, pady=(0, 12))
-        convert_block.grid_columnconfigure(2, weight=1)
+        self.convert_block = ctk.CTkFrame(card, fg_color=COLOR_CARD_INNER, corner_radius=12)
+        self.convert_block.grid(row=2, column=0, sticky="ew", padx=22, pady=(0, 12))
+        self.convert_block.grid_columnconfigure(2, weight=1)
 
         self.convert_format_label = ctk.CTkLabel(
-            convert_block, text="",
+            self.convert_block, text="",
             font=self._font(size=12, weight="bold"), text_color=COLOR_MUTED, anchor="w",
         )
         self.convert_format_label.grid(row=0, column=0, sticky="w", padx=(16, 10), pady=14)
 
         self.convert_format_var = ctk.StringVar(value="WAV")
         self.convert_format_menu = ctk.CTkOptionMenu(
-            convert_block, values=["WAV", "FLAC", "MP3"],
+            self.convert_block, values=["WAV", "FLAC", "MP3"],
             variable=self.convert_format_var, width=120, height=34, corner_radius=10,
             fg_color=COLOR_SURFACE, button_color=COLOR_BORDER,
             button_hover_color=COLOR_MUTED, dropdown_fg_color=COLOR_SURFACE,
@@ -1809,7 +1954,7 @@ class MerphiAudioInspector(ctk.CTk):
         self.convert_format_menu.grid(row=0, column=1, sticky="w", pady=14)
 
         self.convert_btn = ctk.CTkButton(
-            convert_block, text="", width=170, height=34, corner_radius=10,
+            self.convert_block, text="", width=170, height=34, corner_radius=10,
             fg_color=COLOR_SURFACE, hover_color=COLOR_BORDER,
             border_width=1, border_color=COLOR_BORDER, text_color=COLOR_TEXT,
             font=self._font(size=12, weight="bold"), command=self._convert_audio,
@@ -1827,13 +1972,21 @@ class MerphiAudioInspector(ctk.CTk):
         )
         self.sp_desc_btn.grid(row=0, column=0, padx=(0, 8))
 
+        self.sp_ar_btn = ctk.CTkButton(
+            pitch_row, text="", height=34, corner_radius=10,
+            fg_color=COLOR_SURFACE_ALT, hover_color=COLOR_BORDER,
+            border_width=1, border_color=COLOR_BORDER, text_color=COLOR_TEXT,
+            font=self._font(size=12, weight="bold"), command=self._open_ar_report,
+        )
+        self.sp_ar_btn.grid(row=0, column=1, padx=(0, 8))
+
         self.sp_songdna_btn = ctk.CTkButton(
             pitch_row, text="", height=34, corner_radius=10,
             fg_color=COLOR_SURFACE_ALT, hover_color=COLOR_BORDER,
             border_width=1, border_color=COLOR_BORDER, text_color=COLOR_TEXT,
             font=self._font(size=12), command=self._open_songdna,
         )
-        self.sp_songdna_btn.grid(row=0, column=1, padx=(0, 8))
+        self.sp_songdna_btn.grid(row=0, column=2, padx=(0, 8))
 
         self.sp_youtube_btn = ctk.CTkButton(
             pitch_row, text="", height=34, corner_radius=10,
@@ -1841,7 +1994,7 @@ class MerphiAudioInspector(ctk.CTk):
             text_color="#ffffff", font=self._font(size=12, weight="bold"),
             command=self._open_youtube_search,
         )
-        self.sp_youtube_btn.grid(row=0, column=2)
+        self.sp_youtube_btn.grid(row=0, column=3)
 
         self.about_btn = ctk.CTkButton(
             card, text="", height=40, corner_radius=12,
@@ -2077,6 +2230,150 @@ class MerphiAudioInspector(ctk.CTk):
     def _open_spotify(self) -> None:
         if self.spotify_url:
             webbrowser.open(self.spotify_url)
+
+    def _has_metadata_context(self) -> bool:
+        if self.file_loaded:
+            return True
+        if self.web_metadata_mode and (self.spotify_result or {}).get("found"):
+            return True
+        if self.web_metadata_mode and (self.youtube_result or {}).get("found"):
+            return True
+        return False
+
+    def _set_web_metadata_ui(self, enabled: bool) -> None:
+        self.web_metadata_mode = enabled
+        if enabled:
+            self.ai_block.grid_remove()
+            self.convert_block.grid_remove()
+            self.drop_zone.configure(border_color=COLOR_BORDER)
+            self.drop_label.configure(text=self._t("web_specs_status"))
+            self.file_label.configure(text="")
+        else:
+            self.ai_block.grid()
+            self.convert_block.grid()
+
+    def _show_web_specs_status(self) -> None:
+        specs = {key: "—" for key in SPEC_KEYS}
+        specs["file_name"] = self._t("web_specs_status")
+        self._render_specs(specs)
+
+    def _enhance_cover_with_apple_music(self, meta: dict) -> None:
+        artist, title = _split_artist_title(
+            meta.get("matched_name") or meta.get("query") or ""
+        )
+        apple_url = search_hi_res_artwork_url(artist, title)
+        if not apple_url:
+            return
+        data = download_artwork(apple_url)
+        if data:
+            meta["cover_bytes"] = data
+            meta["cover_url"] = apple_url
+
+    def _on_smart_search_enter(self, _event=None) -> None:
+        self._on_smart_search()
+
+    def _on_smart_search(self) -> None:
+        query = self.smart_search_var.get().strip()
+        if not query:
+            return
+        self.process_text_input(query)
+
+    def process_text_input(self, text: str) -> None:
+        """Route a Smart Search query and populate the UI without a local file."""
+        query = text.strip()
+        if not query:
+            return
+        if not check_internet_connection():
+            messagebox.showinfo(
+                self._t("cover_error_title"), self._t("offline_warning")
+            )
+            return
+
+        self.current_file = None
+        self.file_loaded = False
+        self.web_metadata_mode = True
+        self._set_web_metadata_ui(True)
+        self._show_web_specs_status()
+        self._reset_ai_panel()
+
+        self.spotify_result = None
+        self.spotify_url = None
+        self.spotify_token += 1
+        token = self.spotify_token
+
+        self.youtube_result = None
+        self.youtube_url = None
+        self.youtube_pending = YouTubeClient.enabled()
+
+        self.sp_open_btn.grid_remove()
+        self.sp_fallback_warn.grid_remove()
+        self.sp_cover.pack_forget()
+        self.sp_cover_dl_btn.pack_forget()
+        self._cover_image = None
+        self.sp_status.configure(
+            text=self._t("spotify_searching"), text_color=COLOR_MUTED
+        )
+        for val in (
+            self.sp_label_val, self.sp_release_val, self.sp_mood_val,
+            self.sp_bpm_val, self.sp_energy_val, self.sp_dance_val,
+            self.sp_key_val, self.sp_pop_val, self.sp_isrc_val,
+            self.sp_upc_val, self.sp_dist_val,
+            self.sp_ytviews_val, self.sp_ytchan_val, self.sp_ytpub_val,
+        ):
+            val.configure(text="…")
+        self.sp_energy_bar.set(0)
+        self.sp_dance_bar.set(0)
+
+        thread = threading.Thread(
+            target=self._run_smart_search, args=(query, token), daemon=True
+        )
+        thread.start()
+        self.after(20000, lambda t=token: self._spotify_watchdog(t))
+
+    def _run_smart_search(self, query: str, token: int) -> None:
+        if not check_internet_connection():
+            self.after(0, lambda: self._set_offline_mode(True))
+            return
+        bundle = route_smart_query(query)
+        if token != self.spotify_token:
+            return
+
+        meta = dict(bundle.get("spotify") or {})
+        meta["features"] = None
+        meta["features_pending"] = False
+        meta["query"] = bundle.get("query") or query
+
+        if meta.get("found"):
+            self._enhance_cover_with_apple_music(meta)
+
+        youtube = bundle.get("youtube")
+        self.after(
+            0,
+            lambda: self._apply_smart_search_results(meta, youtube, token),
+        )
+
+    def _apply_smart_search_results(
+        self, meta: dict, youtube: dict | None, token: int
+    ) -> None:
+        if token != self.spotify_token:
+            return
+
+        self.spotify_result = meta
+        self.spotify_url = meta.get("url")
+        self._render_spotify()
+
+        self.youtube_pending = False
+        self.youtube_result = youtube
+        self.youtube_url = (youtube or {}).get("url") if youtube else None
+        self._render_youtube()
+
+        if meta.get("found"):
+            self._maybe_trigger_mmg_easter_egg(meta)
+        elif youtube and youtube.get("found"):
+            self.sp_status.configure(
+                text=youtube.get("title") or self._t("spotify_not_found"),
+                text_color=COLOR_SUCCESS,
+            )
 
     def _start_spotify_lookup(self, filepath: str) -> None:
         self.spotify_result = None
@@ -2455,6 +2752,8 @@ class MerphiAudioInspector(ctk.CTk):
         query = res.get("query")
         if not query and self.current_file:
             query = build_search_query(self.current_file)
+        if not query and self.smart_search_var.get().strip():
+            query = self.smart_search_var.get().strip()
         return query or ""
 
     def _open_youtube_search(self) -> None:
@@ -2496,11 +2795,232 @@ class MerphiAudioInspector(ctk.CTk):
             "link": link,
         }
 
-    def _copy_to_clipboard(self, text: str, button: ctk.CTkButton) -> None:
+    def _llm_track_payload(self) -> dict:
+        data = self._description_data()
+        yt = self.youtube_result or {}
+        data["genre"] = self._t(_guess_genre_key(data))
+        data["writers"] = yt.get("writers") or []
+        if yt.get("channel"):
+            data["youtube_channel"] = yt.get("channel")
+        if yt.get("views") is not None:
+            data["youtube_views"] = yt.get("views")
+        if yt.get("credits"):
+            data["credits"] = yt.get("credits")
+        return data
+
+    def _copy_to_clipboard(
+        self, text: str, button: ctk.CTkButton, reset_key: str = "copy_button"
+    ) -> None:
         self.clipboard_clear()
         self.clipboard_append(text)
         button.configure(text=self._t("copied"))
-        self.after(1500, lambda: button.configure(text=self._t("copy_button")))
+        self.after(
+            1500, lambda: button.configure(text=self._t(reset_key))
+        )
+
+    def _set_readonly_textbox(self, box: ctk.CTkTextbox, text: str) -> None:
+        box.configure(state="normal")
+        box.delete("1.0", "end")
+        box.insert("1.0", text)
+        box.configure(state="disabled")
+
+    def _reset_pitch_button(self) -> None:
+        self._pitch_generating = False
+        self.sp_desc_btn.configure(
+            state="normal", text=self._t("btn_description")
+        )
+
+    def _reset_ar_button(self) -> None:
+        self._ar_generating = False
+        self.sp_ar_btn.configure(state="normal", text=self._t("btn_ar_report"))
+
+    def _open_description(self) -> None:
+        if not self._has_metadata_context():
+            messagebox.showinfo(
+                self._t("msg_no_metadata_title"), self._t("msg_no_metadata_body")
+            )
+            return
+        if not gemini_enabled():
+            messagebox.showerror(
+                self._t("llm_error_title"), self._t("llm_no_key")
+            )
+            return
+        if self._pitch_generating:
+            return
+
+        self._pitch_generating = True
+        self.sp_desc_btn.configure(
+            state="disabled", text=self._t("pitch_generating")
+        )
+
+        win = self._make_popup(self._t("desc_title"), 620, 420)
+        win.grid_columnconfigure(0, weight=1)
+        win.grid_rowconfigure(1, weight=1)
+        win.protocol("WM_DELETE_WINDOW", lambda: self._close_pitch_popup(win))
+
+        ctk.CTkLabel(
+            win, text=self._t("desc_title"),
+            font=self._font(size=16, weight="bold"), text_color=COLOR_TEXT,
+            wraplength=540, justify="left",
+        ).grid(row=0, column=0, sticky="w", padx=18, pady=(18, 8))
+
+        box = ctk.CTkTextbox(
+            win, font=self._font(size=13), fg_color=COLOR_SURFACE,
+            text_color=COLOR_TEXT, wrap="word", corner_radius=10,
+        )
+        box.grid(row=1, column=0, sticky="nsew", padx=18, pady=(0, 10))
+        box.insert("1.0", self._t("pitch_generating"))
+
+        bar = ctk.CTkFrame(win, fg_color="transparent")
+        bar.grid(row=2, column=0, sticky="e", padx=18, pady=(0, 16))
+        copy_btn = ctk.CTkButton(
+            bar, text=self._t("copy_button"), width=120, height=34,
+            corner_radius=10, fg_color=COLOR_ACCENT,
+            hover_color=COLOR_ACCENT_HOVER, text_color="#ffffff",
+            font=self._font(size=12, weight="bold"), state="disabled",
+        )
+        copy_btn.grid(row=0, column=0, padx=(0, 8))
+        ctk.CTkButton(
+            bar, text=self._t("close_button"), width=100, height=34,
+            corner_radius=10, fg_color=COLOR_SURFACE_ALT,
+            hover_color=COLOR_BORDER, text_color=COLOR_TEXT,
+            border_width=1, border_color=COLOR_BORDER, font=self._font(size=12),
+            command=lambda: self._close_pitch_popup(win),
+        ).grid(row=0, column=1)
+
+        payload = self._llm_track_payload()
+        lang = self.current_lang
+
+        def worker() -> None:
+            result: str | None = None
+            err: Exception | None = None
+            try:
+                result = generate_editorial_pitch(payload, lang)
+            except Exception as e:
+                err = e
+            finally:
+
+                def ui_done(
+                    text: str | None = result,
+                    error: Exception | None = err,
+                ) -> None:
+                    self._reset_pitch_button()
+                    if not win.winfo_exists():
+                        return
+                    if error is not None:
+                        self._set_readonly_textbox(
+                            box, f"⚠️ Ошибка API: {error}"
+                        )
+                        return
+                    self._set_readonly_textbox(box, text or "")
+                    copy_btn.configure(state="normal")
+                    copy_btn.configure(
+                        command=lambda t=text: self._copy_to_clipboard(
+                            t or "", copy_btn
+                        )
+                    )
+
+                self.after(0, ui_done)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _close_pitch_popup(self, win: ctk.CTkToplevel) -> None:
+        self._reset_pitch_button()
+        win.destroy()
+
+    def _open_ar_report(self) -> None:
+        if not self._has_metadata_context():
+            messagebox.showinfo(
+                self._t("msg_no_metadata_title"), self._t("msg_no_metadata_body")
+            )
+            return
+        if not gemini_enabled():
+            messagebox.showerror(
+                self._t("llm_error_title"), self._t("llm_no_key")
+            )
+            return
+        if self._ar_generating:
+            return
+
+        self._ar_generating = True
+        self.sp_ar_btn.configure(
+            state="disabled", text=self._t("ar_report_generating")
+        )
+
+        win = self._make_popup(self._t("ar_report_title"), 680, 560)
+        win.grid_columnconfigure(0, weight=1)
+        win.grid_rowconfigure(1, weight=1)
+        win.protocol("WM_DELETE_WINDOW", lambda: self._close_ar_popup(win))
+
+        ctk.CTkLabel(
+            win, text=self._t("ar_report_title"),
+            font=self._font(size=16, weight="bold"), text_color=COLOR_TEXT,
+            wraplength=620, justify="left",
+        ).grid(row=0, column=0, sticky="w", padx=18, pady=(18, 8))
+
+        box = ctk.CTkTextbox(
+            win, font=self._font(size=13), fg_color=COLOR_SURFACE,
+            text_color=COLOR_TEXT, wrap="word", corner_radius=10,
+        )
+        box.grid(row=1, column=0, sticky="nsew", padx=18, pady=(0, 10))
+        box.insert("1.0", self._t("ar_report_generating"))
+
+        bar = ctk.CTkFrame(win, fg_color="transparent")
+        bar.grid(row=2, column=0, sticky="e", padx=18, pady=(0, 16))
+        copy_btn = ctk.CTkButton(
+            bar, text=self._t("copy_ar_report"), width=150, height=34,
+            corner_radius=10, fg_color=COLOR_ACCENT,
+            hover_color=COLOR_ACCENT_HOVER, text_color="#ffffff",
+            font=self._font(size=12, weight="bold"), state="disabled",
+        )
+        copy_btn.grid(row=0, column=0, padx=(0, 8))
+        ctk.CTkButton(
+            bar, text=self._t("close_button"), width=100, height=34,
+            corner_radius=10, fg_color=COLOR_SURFACE_ALT,
+            hover_color=COLOR_BORDER, text_color=COLOR_TEXT,
+            border_width=1, border_color=COLOR_BORDER, font=self._font(size=12),
+            command=lambda: self._close_ar_popup(win),
+        ).grid(row=0, column=1)
+
+        payload = self._llm_track_payload()
+        lang = self.current_lang
+
+        def worker() -> None:
+            result: str | None = None
+            err: Exception | None = None
+            try:
+                result = generate_ar_report(payload, lang)
+            except Exception as e:
+                err = e
+            finally:
+
+                def ui_done(
+                    text: str | None = result,
+                    error: Exception | None = err,
+                ) -> None:
+                    self._reset_ar_button()
+                    if not win.winfo_exists():
+                        return
+                    if error is not None:
+                        self._set_readonly_textbox(
+                            box, f"⚠️ Ошибка API: {error}"
+                        )
+                        return
+                    self._set_readonly_textbox(box, text or "")
+                    copy_btn.configure(state="normal")
+                    copy_btn.configure(
+                        command=lambda t=text: self._copy_to_clipboard(
+                            t or "", copy_btn, reset_key="copy_ar_report"
+                        )
+                    )
+
+                self.after(0, ui_done)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _close_ar_popup(self, win: ctk.CTkToplevel) -> None:
+        self._reset_ar_button()
+        win.destroy()
 
     def _make_popup(self, title: str, width: int, height: int) -> ctk.CTkToplevel:
         win = ctk.CTkToplevel(self)
@@ -2571,51 +3091,6 @@ class MerphiAudioInspector(ctk.CTk):
             font=self._font(size=12), command=win.destroy,
         ).grid(row=2, column=0, sticky="e", padx=22, pady=(0, 18))
 
-    def _open_description(self) -> None:
-        if not self.current_file:
-            messagebox.showinfo(
-                self._t("msg_no_file_title"), self._t("msg_no_file_body")
-            )
-            return
-
-        text = generate_track_description(
-            self.current_lang, self._description_data(), t_func=self._t
-        )
-
-        win = self._make_popup(self._t("desc_title"), 620, 420)
-        win.grid_columnconfigure(0, weight=1)
-        win.grid_rowconfigure(1, weight=1)
-
-        ctk.CTkLabel(
-            win, text=self._t("desc_title"),
-            font=self._font(size=16, weight="bold"), text_color=COLOR_TEXT,
-            wraplength=540, justify="left",
-        ).grid(row=0, column=0, sticky="w", padx=18, pady=(18, 8))
-
-        box = ctk.CTkTextbox(
-            win, font=self._font(size=13), fg_color=COLOR_SURFACE,
-            text_color=COLOR_TEXT, wrap="word", corner_radius=10,
-        )
-        box.grid(row=1, column=0, sticky="nsew", padx=18, pady=(0, 10))
-        box.insert("1.0", text)
-        box.configure(state="disabled")
-
-        bar = ctk.CTkFrame(win, fg_color="transparent")
-        bar.grid(row=2, column=0, sticky="e", padx=18, pady=(0, 16))
-        copy_btn = ctk.CTkButton(
-            bar, text=self._t("copy_button"), width=120, height=34, corner_radius=10,
-            fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_HOVER, text_color="#ffffff",
-            font=self._font(size=12, weight="bold"),
-        )
-        copy_btn.configure(command=lambda: self._copy_to_clipboard(text, copy_btn))
-        copy_btn.grid(row=0, column=0, padx=(0, 8))
-        ctk.CTkButton(
-            bar, text=self._t("close_button"), width=100, height=34, corner_radius=10,
-            fg_color=COLOR_SURFACE_ALT, hover_color=COLOR_BORDER, text_color=COLOR_TEXT,
-            border_width=1, border_color=COLOR_BORDER, font=self._font(size=12),
-            command=win.destroy,
-        ).grid(row=0, column=1)
-
     def _songdna_tree_section(
         self, parent, row: int, title: str, items: list[tuple[str, str]]
     ) -> int:
@@ -2651,9 +3126,9 @@ class MerphiAudioInspector(ctk.CTk):
         return row + 1
 
     def _open_songdna(self) -> None:
-        if not self.current_file:
+        if not self._has_metadata_context():
             messagebox.showinfo(
-                self._t("msg_no_file_title"), self._t("msg_no_file_body")
+                self._t("msg_no_metadata_title"), self._t("msg_no_metadata_body")
             )
             return
 
@@ -2795,6 +3270,14 @@ class MerphiAudioInspector(ctk.CTk):
         self.browse_btn.configure(text=self._t("browse_button"))
         self.card_file_title_lbl.configure(text=self._t("card_file_title"))
         self.card_action_title_lbl.configure(text=self._t("card_action_title"))
+        self.smart_search_title_lbl.configure(text=self._t("smart_search_title"))
+        self.smart_search_btn.configure(text=self._t("smart_search_btn"))
+        try:
+            self.smart_search_entry.configure(
+                placeholder_text=self._t("smart_search_placeholder")
+            )
+        except Exception:
+            pass
         self.analyze_btn.configure(text=self._t("analyze_button"))
         self.about_btn.configure(text=self._t("about_btn"))
         self.demo_btn.configure(text=self._t("demo_button"))
@@ -2820,6 +3303,12 @@ class MerphiAudioInspector(ctk.CTk):
         self.sp_open_btn.configure(text=self._t("spotify_open_btn"))
         self.sp_songdna_btn.configure(text=self._t("btn_songdna"))
         self.sp_desc_btn.configure(text=self._t("btn_description"))
+        if not self._pitch_generating:
+            self.sp_desc_btn.configure(state="normal")
+        if not self._ar_generating:
+            self.sp_ar_btn.configure(
+                state="normal", text=self._t("btn_ar_report")
+            )
         self.sp_youtube_btn.configure(text=self._t("btn_youtube"))
         self._update_offline_banner()
         self._render_spotify()
@@ -2828,6 +3317,9 @@ class MerphiAudioInspector(ctk.CTk):
             self.drop_label.configure(text=self._t("file_loaded_success"))
             if self.current_file:
                 self.file_label.configure(text=self.current_file)
+        elif self.web_metadata_mode:
+            self.drop_label.configure(text=self._t("web_specs_status"))
+            self.file_label.configure(text="")
         else:
             self.drop_label.configure(text=self._t("drop_primary"))
             self.file_label.configure(text=self._t("no_file_loaded"))
@@ -2914,6 +3406,8 @@ class MerphiAudioInspector(ctk.CTk):
 
         self.current_file = str(path.resolve())
         self.file_loaded = True
+        self.web_metadata_mode = False
+        self._set_web_metadata_ui(False)
         self.file_label.configure(text=self.current_file)
         self.drop_zone.configure(border_color=COLOR_ACCENT)
         self.drop_label.configure(text=self._t("file_loaded_success"))

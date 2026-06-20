@@ -1,63 +1,83 @@
 """
-Local inference for the Deezer deepfake-detector research model.
+MAI AI Detector — spectral (Fourier) artifact analysis.
 
-Runtime inference uses PyTorch. Pretrained weights are shipped as
-models/specnn_amplitude.pt, generated once from the official TensorFlow
-SavedModel via convert_tf_to_torch.py.
+Engine inspired by Deezer's ISMIR 2025 paper "A Fourier Explanation of
+AI-music Artifacts" (Afchar et al.). Neural audio generators that rely on
+transposed-convolution / upsampling stages leave *periodic* "checkerboard"
+artifacts in the magnitude spectrum. Those artifacts show up as sharp,
+regularly spaced peaks once you take the Fourier transform of the
+time-averaged log-spectrum.
+
+This is a fully analytical detector: it requires no trained weights and no
+network download. It only depends on numpy + scipy + librosa.
+
+The probability returned is a heuristic, calibrated so that natural
+recordings tend to score low and audio with strong periodic spectral
+regularity (typical of AI generation) scores high.
 """
 
 from __future__ import annotations
 
-import sys
 import threading
 from pathlib import Path
 
 import numpy as np
-import torch
 
-from deezer_detector.config import ConfLoader
-from deezer_detector.model_torch import DeezerSpecCNN
-from deezer_detector.preprocess import build_eval_slices
+try:
+    from scipy.ndimage import uniform_filter1d
+except Exception:  # pragma: no cover - scipy should always be present
+    uniform_filter1d = None
 
 
 class ModelNotReadyError(FileNotFoundError):
-    """Raised when pretrained Deezer weights are missing locally."""
+    """Kept for backward compatibility. The analytical engine is always ready."""
 
 
-def app_root() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
-    return Path(__file__).resolve().parent.parent
+# Analysis parameters ------------------------------------------------------
+_SAMPLE_RATE = 44100
+_N_FFT = 4096
+_HOP = 1024
+_MAX_SECONDS = 60.0          # analyse at most the central 60 s for speed
+_SLICE_SECONDS = 8.0         # length of each averaged slice
+_NUM_SLICES = 5              # robustness: average artifact score over slices
+_ENVELOPE_WINDOW = 61        # smoothing window (bins) for spectral detrending
+_MIN_QUEFRENCY = 4           # ignore slow trend at the low quefrency end
+
+# Logistic calibration (peak-to-background ratio -> probability)
+#
+# NOTE on calibration: DAW time-stretching / pitch-shifting (e.g. "slowed"
+# edits) introduce strong, regular spectral/phase artifacts that closely
+# resemble the periodic "checkerboard" patterns of AI deconvolution. Those
+# manipulated-but-human tracks were observed around ratio ~19, which the old
+# (midpoint=9, width=2.2) curve pushed to ~99% AI. The midpoint is therefore
+# raised well above that range and the curve widened so only genuinely high,
+# sustained periodicity reaches high confidence.
+_RATIO_MIDPOINT = 24.0
+_RATIO_WIDTH = 5.5
 
 
-def models_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        bundled = Path(sys._MEIPASS) / "models"  # type: ignore[attr-defined]
-        if bundled.is_dir():
-            return bundled
-    return app_root() / "models"
+def _smooth(values: np.ndarray, window: int) -> np.ndarray:
+    if uniform_filter1d is not None:
+        return uniform_filter1d(values, size=window, mode="nearest")
+    kernel = np.ones(window, dtype=np.float64) / float(window)
+    return np.convolve(values, kernel, mode="same")
 
 
-def conf_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys._MEIPASS) / "deezer_detector" / "conf"  # type: ignore[attr-defined]
-    return Path(__file__).resolve().parent / "conf"
+def _sigmoid(x: float) -> float:
+    return 1.0 / (1.0 + np.exp(-x))
 
 
-class DeezerDeepfakeDetector:
-    """Thread-safe lazy loader + PyTorch predictor for specnn_amplitude."""
+class MAIDetector:
+    """Thread-safe singleton spectral AI-artifact detector."""
 
-    _instance: "DeezerDeepfakeDetector | None" = None
+    _instance: "MAIDetector | None" = None
     _instance_lock = threading.Lock()
 
     def __init__(self) -> None:
-        self._model: DeezerSpecCNN | None = None
-        self._conf: dict | None = None
-        self._device = torch.device("cpu")
-        self._load_lock = threading.Lock()
+        self._ready = True
 
     @classmethod
-    def get(cls) -> "DeezerDeepfakeDetector":
+    def get(cls) -> "MAIDetector":
         with cls._instance_lock:
             if cls._instance is None:
                 cls._instance = cls()
@@ -65,59 +85,87 @@ class DeezerDeepfakeDetector:
 
     @property
     def is_ready(self) -> bool:
-        return self._model is not None
-
-    @property
-    def weights_path(self) -> Path:
-        return models_dir() / "specnn_amplitude.pt"
+        return True
 
     def ensure_ready(self) -> None:
-        if self._model is not None:
-            return
+        """No-op: the analytical engine needs no downloaded weights."""
+        return None
 
-        with self._load_lock:
-            if self._model is not None:
-                return
+    # -- core analysis -----------------------------------------------------
 
-            if not self.weights_path.is_file():
-                raise ModelNotReadyError(
-                    "PyTorch weights not found.\n"
-                    "Run:\n"
-                    "  python download_model.py\n"
-                    "  python convert_tf_to_torch.py"
-                )
+    def _load_mono(self, filepath: str | Path) -> np.ndarray:
+        import librosa
 
-            loader = ConfLoader(conf_dir())
-            loader.load_model("specnn_amplitude")
-            self._conf = loader.conf
+        waveform, _ = librosa.load(
+            str(filepath),
+            sr=_SAMPLE_RATE,
+            mono=True,
+            dtype=np.float32,
+        )
+        if waveform.size == 0:
+            raise ValueError("Audio file is empty or could not be decoded.")
 
-            model = DeezerSpecCNN()
-            state_dict = torch.load(
-                self.weights_path,
-                map_location=self._device,
-                weights_only=True,
-            )
-            model.load_state_dict(state_dict)
-            model.to(self._device)
-            model.eval()
-            self._model = model
+        max_len = int(_MAX_SECONDS * _SAMPLE_RATE)
+        if waveform.shape[0] > max_len:
+            start = (waveform.shape[0] - max_len) // 2
+            waveform = waveform[start : start + max_len]
+        return waveform
+
+    def _artifact_ratio(self, mono_slice: np.ndarray) -> float:
+        """Peak-to-background ratio of periodic spectral artifacts in one slice."""
+        import librosa
+
+        if mono_slice.shape[0] < _N_FFT:
+            mono_slice = np.pad(mono_slice, (0, _N_FFT - mono_slice.shape[0]))
+
+        stft = librosa.stft(mono_slice, n_fft=_N_FFT, hop_length=_HOP, center=True)
+        power = np.abs(stft) ** 2
+        log_power = np.log10(np.clip(power, 1e-10, None))
+
+        # Time-averaged spectrum across frequency bins.
+        mean_spectrum = log_power.mean(axis=1)
+
+        # Detrend: remove the natural smooth spectral envelope so only
+        # periodic (artifact) structure remains.
+        envelope = _smooth(mean_spectrum, _ENVELOPE_WINDOW)
+        residual = mean_spectrum - envelope
+
+        # Window the residual, then take its Fourier transform over frequency.
+        window = np.hanning(residual.shape[0])
+        spectrum_fft = np.abs(np.fft.rfft(residual * window))
+
+        if spectrum_fft.shape[0] <= _MIN_QUEFRENCY + 2:
+            return 0.0
+
+        band = spectrum_fft[_MIN_QUEFRENCY:]
+        background = np.median(band) + 1e-9
+        peak = float(np.max(band))
+        return peak / background
 
     def predict_file(self, filepath: str | Path) -> float:
         """
-        Return AI/deepfake probability in [0, 1].
+        Return AI-generation probability in [0, 1].
 
-        0.0 ~ human / authentic, 1.0 ~ AI / deepfake (Deezer sigmoid head).
+        0.0 ~ natural / human recording, 1.0 ~ strong AI spectral artifacts.
         """
-        self.ensure_ready()
-        assert self._model is not None
-        assert self._conf is not None
+        mono = self._load_mono(filepath)
 
-        specs = build_eval_slices(filepath, self._conf)
-        probabilities: list[float] = []
+        slice_len = int(_SLICE_SECONDS * _SAMPLE_RATE)
+        if mono.shape[0] <= slice_len:
+            ratios = [self._artifact_ratio(mono)]
+        else:
+            max_offset = mono.shape[0] - slice_len
+            offsets = np.linspace(0, max_offset, num=_NUM_SLICES, dtype=int)
+            ratios = [
+                self._artifact_ratio(mono[off : off + slice_len])
+                for off in offsets
+            ]
 
-        for spec in specs:
-            tensor = torch.from_numpy(np.transpose(spec, (2, 0, 1))).unsqueeze(0)
-            tensor = tensor.to(self._device, dtype=torch.float32)
-            probabilities.append(self._model.predict_deepfake_probability(tensor))
+        # Use a robust central tendency to resist single-slice outliers.
+        ratio = float(np.median(ratios))
+        probability = _sigmoid((ratio - _RATIO_MIDPOINT) / _RATIO_WIDTH)
+        return float(np.clip(probability, 0.0, 1.0))
 
-        return float(np.mean(probabilities))
+
+# Backward-compatible alias so existing imports keep working.
+DeezerDeepfakeDetector = MAIDetector

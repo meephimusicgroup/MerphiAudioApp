@@ -15,6 +15,10 @@ _VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
 
 _PROVIDED_BY = "Provided to YouTube by "
 _BULLET_SEP = " • "
+_YOUTUBE_ID_RE = re.compile(
+    r"(?:youtube\.com/watch\?.*?v=|youtube\.com/shorts/|youtu\.be/|youtube\.com/embed/)([A-Za-z0-9_-]{11})",
+    re.IGNORECASE,
+)
 _CREDIT_PATTERNS = (
     re.compile(r"Producer:\s*(.+)", re.IGNORECASE),
     re.compile(r"Composer:\s*(.+)", re.IGNORECASE),
@@ -73,6 +77,12 @@ def parse_youtube_description(description: str | None) -> dict:
     return result
 
 
+def extract_youtube_video_id(text: str) -> str | None:
+    """Extract a YouTube video ID from a URL."""
+    match = _YOUTUBE_ID_RE.search(text.strip())
+    return match.group(1) if match else None
+
+
 class YouTubeClient:
     _instance: "YouTubeClient | None" = None
     _lock = threading.Lock()
@@ -87,6 +97,62 @@ class YouTubeClient:
     @staticmethod
     def enabled() -> bool:
         return api_config.youtube_enabled()
+
+    def fetch_by_video_id(self, video_id: str) -> dict:
+        """Fetch metadata for a known YouTube video ID."""
+        result = {
+            "enabled": self.enabled(),
+            "found": False,
+            "title": None,
+            "channel": None,
+            "published": None,
+            "views": None,
+            "url": f"https://www.youtube.com/watch?v={video_id}" if video_id else None,
+            "description": None,
+            "distributor": None,
+            "credits": [],
+            "writers": [],
+            "error": None,
+        }
+        if not self.enabled() or not video_id:
+            return result
+
+        try:
+            import requests
+
+            key = api_config.YOUTUBE_API_KEY
+            vr = requests.get(
+                _VIDEOS_URL,
+                params={"part": "snippet,statistics", "id": video_id, "key": key},
+                timeout=15,
+            )
+            vdata = vr.json()
+            if "error" in vdata:
+                result["error"] = vdata["error"].get("message", "YouTube API error")
+                return result
+
+            vitems = vdata.get("items") or []
+            if not vitems:
+                return result
+
+            full_snippet = vitems[0].get("snippet") or {}
+            stats = vitems[0].get("statistics") or {}
+            description = full_snippet.get("description") or ""
+            result["found"] = True
+            result["title"] = full_snippet.get("title")
+            result["channel"] = full_snippet.get("channelTitle")
+            result["published"] = (full_snippet.get("publishedAt") or "")[:10] or None
+            result["description"] = description
+            parsed = parse_youtube_description(description)
+            result["distributor"] = parsed["distributor"]
+            result["credits"] = parsed["credits"]
+            result["writers"] = parsed["writers"]
+            views = stats.get("viewCount")
+            result["views"] = int(views) if views is not None else None
+        except Exception as exc:
+            result["error"] = str(exc)
+
+        return result
 
     def fetch(self, query: str) -> dict:
         """

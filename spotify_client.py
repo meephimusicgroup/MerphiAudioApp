@@ -35,6 +35,18 @@ _NOISE_TOKENS = {
 }
 _FEAT_RE = re.compile(r"\b(feat|ft|featuring|with)\b.*", re.IGNORECASE)
 _BRACKETS_RE = re.compile(r"[\(\[\{].*?[\)\]\}]")
+_SPOTIFY_TRACK_RE = re.compile(
+    r"(?:https?://)?(?:open\.)?spotify\.com/track/([A-Za-z0-9]{22})|spotify:track:([A-Za-z0-9]{22})",
+    re.IGNORECASE,
+)
+
+
+def extract_spotify_track_id(text: str) -> str | None:
+    """Extract a Spotify track ID from a URL or URI."""
+    match = _SPOTIFY_TRACK_RE.search(text.strip())
+    if not match:
+        return None
+    return match.group(1) or match.group(2)
 
 
 def build_search_query(filepath: str | Path) -> str:
@@ -198,10 +210,45 @@ class SpotifyInsights:
         query = build_search_query(filepath)
         return self._run_search(query, query)
 
-    def search_by_isrc(self, isrc: str, display_query: str = "") -> dict:
-        """Exact Spotify lookup by ISRC (used after an ACRCloud match)."""
+    def search_by_isrc(
+        self, isrc: str, display_query: str = "", source: str = "acrcloud"
+    ) -> dict:
+        """Exact Spotify lookup by ISRC."""
         result = self._run_search(display_query or isrc, f"isrc:{isrc}")
-        result["source"] = "acrcloud"
+        result["source"] = source
+        return result
+
+    def search_by_upc(self, upc: str) -> dict:
+        """Spotify lookup by album UPC/EAN."""
+        cleaned = upc.strip()
+        result = self._run_search(cleaned, f"upc:{cleaned}")
+        result["source"] = "upc"
+        return result
+
+    def search_by_text(self, query: str) -> dict:
+        """Standard Spotify text search (artist / track)."""
+        cleaned = query.strip()
+        result = self._run_search(cleaned, cleaned)
+        result["source"] = "text"
+        return result
+
+    def search_by_track_id(self, track_id: str) -> dict:
+        """Direct Spotify track lookup from a link ID."""
+        result = self._empty_result(track_id)
+        client = self._get_client()
+        if client is None:
+            result["error"] = self._client_error or "Spotify client unavailable"
+            return result
+        try:
+            track = client.track(track_id)
+            if track:
+                self._fill_from_track(client, track, result)
+                result["source"] = "spotify_link"
+        except Exception as exc:
+            if getattr(exc, "http_status", None) == 429:
+                result["error"] = "rate_limited"
+            else:
+                result["error"] = str(exc)
         return result
 
     def local_features(self, filepath: str | Path) -> dict | None:

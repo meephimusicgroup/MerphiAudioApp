@@ -1,5 +1,9 @@
-"""Local Deezer deepfake-detector inference (research model)."""
+"""MAI AI Detector — local spectral (Fourier) artifact analysis engine."""
 
-from deezer_detector.inference import DeezerDeepfakeDetector, ModelNotReadyError
+from deezer_detector.inference import (
+    DeezerDeepfakeDetector,
+    MAIDetector,
+    ModelNotReadyError,
+)
 
-__all__ = ["DeezerDeepfakeDetector", "ModelNotReadyError"]
+__all__ = ["MAIDetector", "DeezerDeepfakeDetector", "ModelNotReadyError"]
