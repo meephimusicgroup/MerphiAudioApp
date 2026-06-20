@@ -4,7 +4,7 @@ A modern Windows desktop tool for inspecting audio file specifications
 and local MAI AI Detector spectral (Fourier) analysis.
 """
 
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.1.2"
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/meephimusicgroup/MerphiAudioApp/master/version.json"
 
 import json

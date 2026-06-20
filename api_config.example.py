@@ -19,6 +19,10 @@ ACR_SECRET = os.environ.get("ACR_SECRET", "")
 # --- Google Gemini ---------------------------------------------------------
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
+# --- Spotify (Client Credentials flow) -------------------------------------
+SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID", "")
+SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
+
 
 def youtube_enabled() -> bool:
     return bool(YOUTUBE_API_KEY)
@@ -30,3 +34,7 @@ def acrcloud_enabled() -> bool:
 
 def gemini_enabled() -> bool:
     return bool(GEMINI_API_KEY)
+
+
+def spotify_enabled() -> bool:
+    return bool(SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET)

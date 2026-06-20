@@ -10,10 +10,9 @@ Spotify integration for Merphi Audio Inspector.
 
 SECURITY NOTE
 -------------
-Hardcoding the client secret in source code is not recommended. The values
-below are only defaults; you can (and should) override them with environment
-variables SPOTIPY_CLIENT_ID / SPOTIPY_CLIENT_SECRET. Because this secret has
-been shared, rotate it in the Spotify dashboard ("Rotate client secret").
+Credentials are loaded from api_config.py (which is gitignored) rather than
+hardcoded here. Environment variables SPOTIPY_CLIENT_ID / SPOTIPY_CLIENT_SECRET
+still take priority when set. Never commit real secrets to the repository.
 """
 
 from __future__ import annotations
@@ -23,9 +22,7 @@ import re
 import threading
 from pathlib import Path
 
-# Provided by the user (override via environment variables in production).
-DEFAULT_CLIENT_ID = "3fed3e694afc4523a5da0140377a9b18"
-DEFAULT_CLIENT_SECRET = "8aaf7f706ae4431f8d99e114e54fed14"
+import api_config
 
 # Filename noise removed before searching Spotify.
 _NOISE_TOKENS = {
@@ -107,9 +104,11 @@ class SpotifyInsights:
                 import spotipy
                 from spotipy.oauth2 import SpotifyClientCredentials
 
-                client_id = os.environ.get("SPOTIPY_CLIENT_ID", DEFAULT_CLIENT_ID)
+                client_id = os.environ.get(
+                    "SPOTIPY_CLIENT_ID", api_config.SPOTIFY_CLIENT_ID
+                )
                 client_secret = os.environ.get(
-                    "SPOTIPY_CLIENT_SECRET", DEFAULT_CLIENT_SECRET
+                    "SPOTIPY_CLIENT_SECRET", api_config.SPOTIFY_CLIENT_SECRET
                 )
                 auth = SpotifyClientCredentials(
                     client_id=client_id,
