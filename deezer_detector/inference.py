@@ -46,13 +46,13 @@ _MIN_QUEFRENCY = 4           # ignore slow trend at the low quefrency end
 # Logistic calibration (peak-to-background ratio -> probability)
 #
 # NOTE on calibration: DAW time-stretching / pitch-shifting (e.g. "slowed"
-# edits) introduce strong, regular spectral/phase artifacts that closely
-# resemble the periodic "checkerboard" patterns of AI deconvolution. Those
-# manipulated-but-human tracks were observed around ratio ~19, which the old
-# (midpoint=9, width=2.2) curve pushed to ~99% AI. The midpoint is therefore
-# raised well above that range and the curve widened so only genuinely high,
-# sustained periodicity reaches high confidence.
-_RATIO_MIDPOINT = 24.0
+# edits) introduce strong, regular spectral/phase artifacts that resemble the
+# periodic "checkerboard" patterns of AI deconvolution. A midpoint of 9 pushed
+# those manipulated-but-human tracks (ratio ~19) to ~99% AI; a midpoint of 24
+# went too far the other way and missed real AI tracks. 18.0 with a wide curve
+# is the sweet spot between catching AI and ignoring standard DAW stretching.
+# (Explicit AI metadata tags are handled separately in the hybrid path.)
+_RATIO_MIDPOINT = 18.0
 _RATIO_WIDTH = 5.5
 
 

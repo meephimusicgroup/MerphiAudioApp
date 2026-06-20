@@ -5,7 +5,7 @@ and local MAI AI Detector spectral (Fourier) analysis.
 """
 
 APP_VERSION = "1.1.0"
-UPDATE_CHECK_URL = "https://raw.githubusercontent.com/merphimusic/MerphiAudioApp/main/version.json"
+UPDATE_CHECK_URL = "https://raw.githubusercontent.com/meephimusicgroup/MerphiAudioApp/master/version.json"
 
 import json
 import os
@@ -3580,6 +3580,13 @@ class MerphiAudioInspector(ctk.CTk):
             return
 
         try:
+            # Hybrid step 1: trust explicit AI-generator metadata tags.
+            ai_tag = detect_ai_music_tag(filepath)
+            if ai_tag is not None:
+                self.after(0, lambda p=0.99: self._show_ai_result(p))
+                return
+
+            # Hybrid step 2: fall back to spectral Fourier analysis.
             detector = DeezerDeepfakeDetector.get()
             self.after(
                 0,
@@ -3665,13 +3672,35 @@ def _tag_value_to_str(value) -> str | None:
     return text or None
 
 
-def detect_daw_encoder(filepath: str) -> str:
-    """Detect the DAW / encoder from tags, WAV RIFF chunks, and MediaInfo."""
+# AI-music generators that stamp their name into file metadata. A match here
+# is a near-certain signal, so it bypasses the spectral analysis entirely.
+AI_METADATA_KEYWORDS = ("suno", "udio", "riffusion")
+
+
+def _gather_metadata_candidates(filepath: str) -> list[str]:
     candidates: list[str] = []
     candidates.extend(_daw_from_mutagen(filepath))
     if str(filepath).lower().endswith(".wav"):
         candidates.extend(_daw_from_wav_chunks(filepath))
     candidates.extend(_daw_from_mediainfo(filepath))
+    return candidates
+
+
+def detect_ai_music_tag(filepath: str) -> str | None:
+    """Return the AI generator keyword if the file metadata names one."""
+    try:
+        blob = " ".join(_gather_metadata_candidates(filepath)).lower()
+    except Exception:
+        return None
+    for keyword in AI_METADATA_KEYWORDS:
+        if keyword in blob:
+            return keyword
+    return None
+
+
+def detect_daw_encoder(filepath: str) -> str:
+    """Detect the DAW / encoder from tags, WAV RIFF chunks, and MediaInfo."""
+    candidates: list[str] = _gather_metadata_candidates(filepath)
 
     seen: set[str] = set()
     unique: list[str] = []
